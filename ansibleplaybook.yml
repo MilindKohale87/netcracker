@@ -1,0 +1,68 @@
+---
+- hosts: all
+  remote_user: root
+  become: yes
+  tasks:
+    - name: disable selinux
+      command: sudo setenforce 0
+      when: ansible_distribution == "CentOS"
+
+    - name: Stop  firewalld.
+      systemd: name=firewalld state=stopped
+
+    - name: Stop  firewalld.
+      systemd: name=firewalld enabled=no
+      when: ansible_distribution == "CentOS"
+##--installing nginx service on frontend server ---
+- hosts: frontend
+  remote_user: root
+  become: yes
+  tasks:
+    - name: install epel-repo
+      yum:
+       name: epel-release
+       state: latest
+
+    - name: install nginx on frontend server
+      yum:
+       name: nginx
+       state: latest
+
+    - name: restarting and enabling the service.
+      service: name=nginx  state=started  enabled=yes
+
+    - name: taking backup of nginx file.
+      command: mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bkp
+
+
+
+    - name: copy nginx.conf file
+      copy:
+       src: /root/nginx.conf
+       dest: /etc/nginx/
+
+    - name: restarting the service
+      service: name=nginx  state=started
+	  
+##-- Installing netdata application from the official repositories on backend server  
+
+    - name: installing netdata on backend server
+      host: backend
+      command: apt-get install -y apt-get install zlib1g-dev uuid-dev libuv1-dev liblz4-dev libssl-dev libelf-dev libmnl-dev libprotobuf-dev protobuf-compiler gcc g++ make git autoconf autoconf-archive autogen automake pkg-config curl python cmake
+     
+    - name: cloning a netdata git repository
+      git:
+       repo: git clone https://github.com/netdata/netdata.git --depth=100 --recursive
+       dest: /root/
+       clone: yes
+       update: yes
+       
+    - name: installing netdata app
+      shell: cd /root/netdata/ ; ./netdata-installer.sh --install /opt
+     
+    - name: starting the netdata service
+      service:
+       name: netdata
+       state: started
+	  
+
